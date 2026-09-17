@@ -1,7 +1,16 @@
 #!/usr/bin/env node
 import "dotenv/config";
+import { createInterface } from "node:readline";
 import { Command, Option } from "commander";
 import type { AgentEvent, AgentRun } from "exa-js";
+import {
+  clearApiKey,
+  configPath,
+  describeApiKeySource,
+  maskApiKey,
+  resolveApiKey as resolveStoredApiKey,
+  saveApiKey,
+} from "./auth.js";
 import {
   cancelAgentRun,
   createAgentRun,
@@ -22,6 +31,7 @@ import {
   type McpConnectionOptions,
   type McpToolResult,
 } from "./mcp.js";
+import { VERSION } from "./version.js";
 
 type JsonOpt = { json?: boolean };
 
@@ -38,7 +48,7 @@ program
   .description(
     "Web search, page fetching, and deep research via the Exa MCP server and API.",
   )
-  .version("0.1.0");
+  .version(VERSION);
 
 /** Options shared by every command. */
 function commonOptions(cmd: Command): Command {
@@ -54,17 +64,17 @@ function commonOptions(cmd: Command): Command {
 
 function resolveConnection(opts: CommonOptions): McpConnectionOptions {
   return {
-    apiKey: opts.apiKey ?? process.env.EXA_API_KEY,
+    apiKey: resolveStoredApiKey(opts.apiKey).apiKey,
     includeApiKey: opts.key !== false,
     url: opts.mcpUrl,
   };
 }
 
 function resolveApiKey(opts: CommonOptions, command: string): string {
-  const apiKey = opts.apiKey ?? process.env.EXA_API_KEY;
+  const { apiKey } = resolveStoredApiKey(opts.apiKey);
   if (!apiKey) {
     throw new Error(
-      `\`${command}\` requires an Exa API key. Set EXA_API_KEY or pass --api-key.`,
+      `\`${command}\` requires an Exa API key. Run \`exa auth\` to save one, set EXA_API_KEY, or pass --api-key.`,
     );
   }
   return apiKey;
@@ -685,6 +695,97 @@ commonOptions(
     }
   },
 );
+
+// ---------------------------------------------------------------------------
+// auth
+// ---------------------------------------------------------------------------
+
+/** Reads a line from the terminal without echoing the typed characters. */
+function promptHidden(question: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const isTty = Boolean(process.stdin.isTTY);
+    const rl = createInterface({
+      input: process.stdin,
+      output: process.stderr,
+      terminal: isTty,
+    });
+
+    let settled = false;
+    const finish = (action: () => void) => {
+      if (settled) return;
+      settled = true;
+      rl.close();
+      action();
+    };
+
+    if (isTty) {
+      const writer = rl as unknown as { _writeToOutput?: (s: string) => void };
+      const original = writer._writeToOutput?.bind(rl);
+      writer._writeToOutput = (string: string) => {
+        // Swallow the typed characters, but let the trailing newline through.
+        if (string.includes("\n") || string.includes("\r")) original?.(string);
+      };
+      process.stderr.write(question);
+    }
+
+    rl.question("", (answer) => {
+      if (isTty) process.stderr.write("\n");
+      finish(() => resolve(answer.trim()));
+    });
+    rl.once("SIGINT", () => finish(() => reject(new Error("Cancelled."))));
+    // Without this, a closed stdin (e.g. `< /dev/null`) leaves the promise
+    // pending and the process exits successfully without saving anything.
+    rl.once("close", () => {
+      if (!settled) reject(new Error("No API key provided."));
+    });
+  });
+}
+
+function storeApiKey(apiKey: string): void {
+  console.log(`Saved Exa API key to ${saveApiKey(apiKey)}`);
+}
+
+const authCommand = program
+  .command("auth")
+  .description("Save or inspect the Exa API key used by the CLI.")
+  .argument("[api-key]", "Exa API key to save (prompts if omitted)")
+  .action(async (apiKey?: string) => {
+    try {
+      const key = apiKey?.trim() || (await promptHidden("Exa API key: "));
+      if (!key) {
+        onError(new Error("No API key provided."));
+        return;
+      }
+      storeApiKey(key);
+    } catch (err) {
+      onError(err);
+    }
+  });
+
+authCommand
+  .command("status")
+  .description("Show which API key the CLI will use and where it comes from.")
+  .action(() => {
+    const { apiKey, source } = resolveStoredApiKey();
+    if (!apiKey) {
+      console.log("No Exa API key configured.");
+      console.log("Run `exa auth` to save one, or set EXA_API_KEY.");
+      return;
+    }
+    console.log(`API key: ${maskApiKey(apiKey)}`);
+    console.log(`Source:  ${describeApiKeySource(source)}`);
+  });
+
+authCommand
+  .command("logout")
+  .description("Remove the API key saved by `exa auth`.")
+  .action(() => {
+    if (clearApiKey()) {
+      console.log(`Removed saved API key from ${configPath()}`);
+    } else {
+      console.log("No saved API key to remove.");
+    }
+  });
 
 // ---------------------------------------------------------------------------
 // tools

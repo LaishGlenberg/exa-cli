@@ -28,29 +28,46 @@ Try it without installing the binary via `npm run dev -- <args>` or with
 
 ## Auth
 
-The CLI loads environment variables from a `.env` file in the current working
-directory at startup (via `dotenv/config`). The simplest setup is:
+The fastest way to get started is to save your key once:
 
 ```bash
-echo 'EXA_API_KEY="your-key"' > .env
+# Interactive: prompts for the key with hidden input
+exa auth
+
+# Non-interactive: pass the key directly
+exa auth exa-abc123...
 ```
 
-A `.env` file is gitignored, so your key stays local. You can also set the key in
-the environment instead:
+This writes the key to your user config directory — `$XDG_CONFIG_HOME/exa-cli/config.json`,
+falling back to `~/.config/exa-cli/config.json` — with `0600` permissions.
+Set `EXA_CONFIG_DIR` to override the location.
+
+Inspect or remove the saved key at any time:
+
+```bash
+exa auth status   # shows the active key (masked) and where it comes from
+exa auth logout   # removes the saved key
+```
+
+The key can also come from the environment, which is ideal for CI:
 
 ```bash
 export EXA_API_KEY="your-key"
 ```
 
-Precedence is `--api-key <key>` > existing environment variable > `.env` file —
-`dotenv` does not overwrite variables that are already set.
+…or from a `.env` file in the current working directory (loaded at startup via
+`dotenv`; the file is gitignored).
 
-The key is sent to the MCP server as the `exaApiKey` query parameter (exactly how
-`pi-exa` does it). Pass `--api-key <key>` to override, or `--no-key` to omit the
-key and use the free tier.
+Precedence, highest first:
 
-`deep-search` **always** requires a key (REST API); the MCP-backed commands work
-without one.
+1. `--api-key <key>` flag
+2. `EXA_API_KEY` environment variable (including values loaded from `.env`)
+3. the key saved by `exa auth`
+
+The key is sent to the MCP server as the `exaApiKey` query parameter. Pass
+`--no-key` to omit it and use the free tier. `deep-search` and every `agent ...`
+command **always** require a key (they use the REST API); the MCP-backed
+`search` / `fetch` / `advanced-search` commands work without one.
 
 ## Usage
 
@@ -70,11 +87,11 @@ exa advanced-search "vector database benchmarks" \
   --highlights --summary
 
 # Deep research (requires an API key)
-EXA_API_KEY=... exa deep-search "state of open-source MCP servers" \
+exa deep-search "state of open-source MCP servers" \
   --type deep-reasoning --additional-query "MCP server ecosystem"
 
 # Exa Agent (requires an API key)
-EXA_API_KEY=... exa agent run "Find the three largest MCP server projects" \
+exa agent run "Find the three largest MCP server projects" \
   --effort medium --system-prompt "Prefer primary sources"
 
 # Stream agent events, or manage existing runs
@@ -109,6 +126,9 @@ exa search "exa mcp" -n 1 --json | jq '.content[0].text'
 | `agent events`    | REST    | List stored events for a run                         |
 | `agent cancel`    | REST    | Cancel a queued or running run                       |
 | `tools`           | MCP     | List the MCP server's tool schemas                   |
+| `auth [api-key]`  | —       | Save the API key (prompts with hidden input if omitted) |
+| `auth status`     | —       | Show the active key (masked) and its source          |
+| `auth logout`     | —       | Remove the saved API key                             |
 
 ### Agent options
 
@@ -123,9 +143,10 @@ one-line usage/cost summary goes to stderr.
 
 | Flag                 | Description                                             |
 | -------------------- | ------------------------------------------------------- |
-| `--api-key <key>`    | Exa API key (defaults to `EXA_API_KEY` / `.env`)         |
+| `--api-key <key>`    | Exa API key (defaults to `EXA_API_KEY` / `exa auth`)     |
 | `--no-key`           | Do not send a key to the MCP server (free tier)         |
-| `--mcp-url <url>`    | Override the MCP server URL (or set `EXA_MCP_URL`)      || `--json`             | Print the raw JSON response                             |
+| `--mcp-url <url>`    | Override the MCP server URL (or set `EXA_MCP_URL`)      |
+| `--json`             | Print the raw JSON response                             |
 
 ## How it maps to `pi-exa`
 
@@ -151,4 +172,21 @@ against the Exa REST API rather than MCP.
 npm run dev -- search "..."   # run from source with tsx
 npm run check                # typecheck only
 npm run build                # compile to dist/
+```
+
+The package is published as `@lglen/exa-cli`. `prepublishOnly` compiles `src/`
+to `dist/` before packing, and `files: ["dist"]` ensures only the compiled
+output ships. Verify the tarball before publishing:
+
+```bash
+npm pack --dry-run                 # inspect what will be published
+npm publish                        # access is set to public via publishConfig
+```
+
+To test a real global install without publishing:
+
+```bash
+npm pack
+npm install -g ./lglen-exa-cli-<version>.tgz
+exa --version
 ```

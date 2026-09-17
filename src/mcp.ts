@@ -1,7 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { VERSION } from "./version.js";
 
-export const EXA_CLI_VERSION = "0.1.0";
 export const DEFAULT_MCP_URL = "https://mcp.exa.ai/mcp";
 
 /** Tool names exposed by the hosted Exa MCP server. */
@@ -48,7 +48,7 @@ export async function connectMcp(
 
   const transport = new StreamableHTTPClientTransport(url);
   const client = new Client(
-    { name: "exa-cli", version: EXA_CLI_VERSION },
+    { name: "exa-cli", version: VERSION },
     { capabilities: {} },
   );
 

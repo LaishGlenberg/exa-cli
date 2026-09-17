@@ -1,5 +1,5 @@
 {
-  "name": "exa-cli",
+  "name": "@lglen/exa-cli",
   "version": "0.1.0",
   "description": "CLI for Exa web search, fetching, and deep research via the Exa MCP server and API.",
   "type": "module",
@@ -9,12 +9,25 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LaishGlenberg/exa-cli.git"
+  },
+  "homepage": "https://github.com/LaishGlenberg/exa-cli#readme",
+  "bugs": {
+    "url": "https://github.com/LaishGlenberg/exa-cli/issues"
+  },
+  "author": "lglen <lglenbe1@asu.edu>",
   "engines": {
     "node": ">=20"
   },
