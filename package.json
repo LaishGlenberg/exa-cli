@@ -1,0 +1,40 @@
+{
+  "name": "exa-cli",
+  "version": "0.1.0",
+  "description": "CLI for Exa web search, fetching, and deep research via the Exa MCP server and API.",
+  "type": "module",
+  "bin": {
+    "exa": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "check": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "exa",
+    "cli",
+    "mcp",
+    "web-search",
+    "deep-search"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "commander": "^15.0.0",
+    "dotenv": "^17.4.2",
+    "exa-js": "^2.12.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.0"
+  }
+}
