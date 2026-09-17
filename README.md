@@ -171,8 +171,25 @@ against the Exa REST API rather than MCP.
 ```bash
 npm run dev -- search "..."   # run from source with tsx
 npm run check                # typecheck only
+npm test                     # unit + local CLI integration tests (node:test via tsx)
+npm run test:integration     # real MCP calls; uses EXA_API_KEY or .env for REST tests
+npm run test:watch           # re-run tests on change
 npm run build                # compile to dist/
 ```
+
+The default tests cover `src/auth.ts` (config paths, key precedence, masking,
+file permissions) and the `auth` commands end-to-end by spawning the real entry
+point. They use a temporary `EXA_CONFIG_DIR`, so they never touch your saved
+key and do not contact Exa. Opt-in integration tests exercise the real MCP
+`tools`, `search`, `fetch`, and `advanced-search` commands with one result/page
+per request. They also run a one-result `deep-search` and an Agent list request
+when `EXA_API_KEY` is supplied directly or through `.env`:
+
+```bash
+npm run test:integration
+```
+
+Notable changes are tracked in [CHANGELOG.md](./CHANGELOG.md).
 
 The package is published as `@lglen/exa-cli`. `prepublishOnly` compiles `src/`
 to `dist/` before packing, and `files: ["dist"]` ensures only the compiled
